@@ -1,3 +1,5 @@
+import os
+
 import requests
 import streamlit as st
 import pandas as pd
@@ -7,13 +9,13 @@ import pandas as pd
 # CONFIGURATION
 # =====================================================
 
-# API_URL = "http://127.0.0.1:8000/predict"
-import os
+# API_URL = FastAPI ka base link, jaise https://tumhari-api.onrender.com
+# (end mein /predict laga ho toh bhi chalega, neeche hata diya jaata hai)
+API_BASE = os.getenv("API_URL", "http://127.0.0.1:8000").rstrip("/")
+if API_BASE.endswith("/predict"):
+    API_BASE = API_BASE[: -len("/predict")]
 
-API_URL = os.getenv(
-    "API_URL",
-    "http://127.0.0.1:8000/predict"
-)
+API_URL = f"{API_BASE}/predict"
 
 st.set_page_config(
     page_title="Predictive Maintenance | AI Dashboard",
@@ -242,10 +244,12 @@ with st.sidebar:
     if st.button("🔌 Check API Connection"):
 
         try:
-            health_response = requests.get(
-                API_URL.rsplit("/", 1)[0] + "/health",
-                timeout=3
-            )
+            # Free tier pe API so jaati hai, isliye timeout bada rakha hai
+            with st.spinner("Connecting to the API (pehli baar 1 minute lag sakta hai)..."):
+                health_response = requests.get(
+                    f"{API_BASE}/health",
+                    timeout=60
+                )
 
             if health_response.status_code == 200:
                 st.success("API is reachable.")
@@ -254,6 +258,12 @@ with st.sidebar:
                 st.warning(
                     "API server is reachable, but /health "
                     "route is not configured."
+                )
+
+            elif health_response.status_code in (502, 503, 504):
+                st.warning(
+                    "API abhi jaag rahi hai. "
+                    "1 minute ruko aur dobara try karo."
                 )
 
             else:
@@ -486,15 +496,17 @@ if submitted:
     }
 
     with st.spinner(
-        "Analyzing sensor readings and evaluating machine health..."
+        "Analyzing sensor readings and evaluating machine health "
+        "(pehli baar API jaagne mein 1 minute lag sakta hai)..."
     ):
 
         try:
 
+            # Timeout bada rakha hai, kyunki free tier pe API so jaati hai
             response = requests.post(
                 API_URL,
                 json=data,
-                timeout=15
+                timeout=90
             )
 
             if response.status_code == 200:
@@ -674,6 +686,14 @@ if submitted:
                     use_container_width=True
                 )
 
+            elif response.status_code in (502, 503, 504):
+
+                st.warning(
+                    "⏳ API abhi jaag rahi hai (free tier pe "
+                    "1 minute lag sakta hai). Thodi der baad "
+                    "dobara try karo."
+                )
+
             else:
 
                 st.error(
@@ -681,20 +701,7 @@ if submitted:
                 )
 
                 with st.expander("View API Error Details"):
-                    st.code(response.text)
-
-        except requests.exceptions.ConnectionError:
-
-            st.error(
-                "❌ Cannot connect to FastAPI. "
-                "Check whether the backend server is running "
-                "and the API URL is correct."
-            )
-
-            st.code(
-                "uvicorn api:app --reload",
-                language="bash"
-            )
+                    st.code(response.text[:500])
 
         except requests.exceptions.Timeout:
 
@@ -703,12 +710,27 @@ if submitted:
                 "Check the backend and try again."
             )
 
+        except requests.exceptions.ConnectionError:
+
+            st.error(
+                "❌ Cannot connect to FastAPI. "
+                "Check whether the backend server is running "
+                "and the API_URL is correct."
+            )
+
+            st.code(API_URL, language="text")
+
+            st.caption(
+                "Local par backend chalane ke liye: "
+                "uvicorn api.main:app --reload"
+            )
+
         except (KeyError, TypeError, ValueError):
 
             st.error(
                 "The API response format is invalid or contains "
                 "unexpected values. Verify the response keys "
-                "and data types in api.py."
+                "and data types in api/main.py."
             )
 
         except requests.exceptions.RequestException as e:

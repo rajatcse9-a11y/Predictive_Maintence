@@ -1,30 +1,18 @@
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 import pandas as pd
 import joblib
-import sys
-from pathlib import Path
 
 
 # =====================================================
 # PROJECT PATH CONFIGURATION
 # =====================================================
 
-PROJECT_ROOT = next(
-    (
-        p
-        for p in [Path.cwd(), *Path.cwd().parents]
-        if (p / "utils" / "paths.py").exists()
-    ),
-    None
-)
-
-if PROJECT_ROOT is None:
-    raise RuntimeError(
-        "Project root not found. "
-        "Could not locate utils/paths.py."
-    )
-
+# api/main.py -> project root (cwd par depend nahi karta, Render pe bhi chalta hai)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.paths import MODEL_PATH
@@ -233,4 +221,3 @@ def predict(data: MachineData):
         "recommendation": recommendation
 
     }
-

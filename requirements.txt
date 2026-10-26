@@ -1,10 +1,7 @@
 fastapi
-uvicorn[standard]
-streamlit
-requests
-pandas
-numpy
-scikit-learn
-joblib
-pydantic
-xgboost
+uvicorn
+joblib==1.5.3
+numpy==1.26.4
+pandas==2.3.2
+scikit-learn==1.7.2
+xgboost==2.1.3
